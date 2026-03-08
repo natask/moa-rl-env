@@ -226,8 +226,18 @@ class MOAEnv(Environment):
                 timeout=60,
             )
             output = result.stdout + result.stderr
-            passed = output.count(" ✓ ")
-            failed = output.count(" ✗ ") + output.count(" × ")
+            # Strip ANSI escape codes before counting — vitest emits them even
+            # when stdout is not a TTY (captured via subprocess).
+            import re as _re
+            plain = _re.sub(r'\x1b\[[0-9;]*m', '', output)
+            passed = plain.count(" ✓ ")
+            failed = plain.count(" ✗ ") + plain.count(" × ")
+            # Fallback: parse summary line "Tests  N failed (N)" / "N passed (N)"
+            if passed + failed == 0:
+                m = _re.search(r'Tests\s+(\d+) passed', plain)
+                if m: passed = int(m.group(1))
+                m = _re.search(r'Tests\s+(\d+) failed', plain)
+                if m: failed = int(m.group(1))
             total = passed + failed
             return passed, total, output[-3000:]
         except Exception as e:
