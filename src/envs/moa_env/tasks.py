@@ -14,10 +14,11 @@ TASKS = [
     {
         "id": "task_001",
         "user_messages": [
-            "the model resolver isn't working, it keeps throwing not implemented",
-            "we need it to support anthropic key, oauth, and vertex auth methods",
-            "if the registry lookup fails it should scan all providers",
-            "fall back to a custom config with providerBaseUrl if nothing works",
+            "connecting to anthropic and using shouldn't need me to log in to anything does this make sense",
+            "I am seeing error, Error invoking remote method 'provider:list': Error: No handler registered for 'provider:list'",
+            "Cannot read properties of undefined (reading 'provider')",
+            "I want this for vertex, I want it to run within the electron layer that is it",
+            "it should only be able to do oauth or get service keys",
         ],
         "description": (
             "Implement resolveModel() in model-resolver.ts. "
@@ -40,10 +41,9 @@ TASKS = [
     {
         "id": "task_002",
         "user_messages": [
-            "add retry logic to the api client, it's failing on rate limits",
-            "need exponential backoff, start at 500ms",
-            "also needs to handle 429 and 5xx errors",
-            "the sleep function should respect an abort signal",
+            "main.tsx:40 [MOA] Boot failed: SyntaxError: The requested module '/node_modules/p-retry/index.js' does not provide an export named 'AbortError'",
+            "figure out we should be doing exponential backoff to make sure api requests actually succeed if they fail",
+            "vertex expires isn't working at all, and also we should be doing exponential backoff",
         ],
         "description": (
             "Implement retry.ts with three exports: "
@@ -69,10 +69,10 @@ TASKS = [
     {
         "id": "task_003",
         "user_messages": [
-            "we need an event store that persists to the db",
-            "it needs append, query, search, count, and materialize",
-            "materialize should reconstruct session state from events",
-            "search should do full text search across event data",
+            "we should have an append only datastructure from which we construct views, json is fine for that at the moment",
+            "I don't want the proper DB and so on until I figure out the structure",
+            "how does the multi conversation scoping in the database-first persistence work, how does it compare with the architecture event sourcing strategy and view building on top of that",
+            "wait changing what I say the schema will refresh the event-store? what about the db.ts and the agent-server.ts",
         ],
         "description": (
             "Implement EventStore in event-store.ts. "
