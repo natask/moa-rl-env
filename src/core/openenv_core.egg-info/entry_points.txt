@@ -1,0 +1,2 @@
+[console_scripts]
+openenv = openenv_cli.__main__:main
