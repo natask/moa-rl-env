@@ -20,9 +20,11 @@ RUN pip install --upgrade --no-cache-dir "trl>=0.12.0,<0.16.0"
 
 WORKDIR /app
 
-# Code is pulled fresh at startup — push to GitHub, restart container, done.
-# No Docker rebuild needed for code changes.
-ENV REPO_URL=https://github.com/natask/moa-rl-env.git
-ENV REPO_BRANCH=master
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD bash -c "git clone --depth=1 --branch $REPO_BRANCH $REPO_URL /app/repo && cd /app/repo/training && python train.py"
+# Iteration loop:
+#   1. Northflank shell (UI or: nf exec <service> -- bash)
+#   2. cd /app/repo/training
+#   3. git pull && python train.py
+CMD ["/entrypoint.sh"]
