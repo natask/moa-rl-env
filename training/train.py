@@ -227,7 +227,7 @@ trainer = GRPOTrainer(
         save_steps=50,
         max_steps=300,
         bf16=True,
-        use_vllm=True,              # Unsloth manages vLLM + weight sync
+        use_vllm=False,             # vLLM disabled: gpt_oss.py weight_name kwarg mismatch on 0.12.x
     ),
     train_dataset=dataset,
 )

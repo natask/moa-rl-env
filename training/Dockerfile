@@ -6,7 +6,7 @@ RUN pip install --upgrade pip
 
 # Install vllm, unsloth, and base deps first
 RUN pip install --no-cache-dir \
-    "vllm==0.12.0" \
+    "vllm==0.7.3" \
     unsloth \
     transformers \
     accelerate \
@@ -15,9 +15,8 @@ RUN pip install --no-cache-dir \
     peft \
     wandb
 
-# Install TRL last with --upgrade so it is not pinned down by unsloth deps
-# trl>=0.16 dropped the GuidedDecodingParams import that broke on vllm 0.12
-RUN pip install --upgrade --no-cache-dir "trl>=0.16.0"
+# TRL pinned to compat range for vllm 0.7.3
+RUN pip install --upgrade --no-cache-dir "trl>=0.12.0,<0.16.0"
 
 WORKDIR /app
 COPY train.py .
