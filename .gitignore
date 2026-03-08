@@ -6,3 +6,4 @@ dist/
 build/
 *.whl
 .DS_Store
+moav2/node_modules/
