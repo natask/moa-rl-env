@@ -2,6 +2,9 @@
 Tasks for the MOA RL environment.
 Uses real moav2 service files. Source and tests are pre-installed in /app/moav2.
 Each task blanks out one service file — the agent must re-implement it.
+
+user_messages: real messages from MOA dev sessions. The model learns to map
+terse, imprecise human intent directly to correct TypeScript implementations.
 """
 import os
 
@@ -10,6 +13,12 @@ MOAV2_DIR = "/app/moav2"
 TASKS = [
     {
         "id": "task_001",
+        "user_messages": [
+            "the model resolver isn't working, it keeps throwing not implemented",
+            "we need it to support anthropic key, oauth, and vertex auth methods",
+            "if the registry lookup fails it should scan all providers",
+            "fall back to a custom config with providerBaseUrl if nothing works",
+        ],
         "description": (
             "Implement resolveModel() in model-resolver.ts. "
             "It maps (modelId, authMethod) to a Model object using the pi-ai registry. "
@@ -30,6 +39,12 @@ TASKS = [
     },
     {
         "id": "task_002",
+        "user_messages": [
+            "add retry logic to the api client, it's failing on rate limits",
+            "need exponential backoff, start at 500ms",
+            "also needs to handle 429 and 5xx errors",
+            "the sleep function should respect an abort signal",
+        ],
         "description": (
             "Implement retry.ts with three exports: "
             "isRetryableError(e) returns true for HTTP 429/5xx and common retry keywords. "
@@ -53,6 +68,12 @@ TASKS = [
     },
     {
         "id": "task_003",
+        "user_messages": [
+            "we need an event store that persists to the db",
+            "it needs append, query, search, count, and materialize",
+            "materialize should reconstruct session state from events",
+            "search should do full text search across event data",
+        ],
         "description": (
             "Implement EventStore in event-store.ts. "
             "It persists events to a DB with append(event), query(filter), "
