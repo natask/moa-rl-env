@@ -27,7 +27,7 @@ wandb.init(
     project = "moa-rl-grpo",
     mode    = "online" if os.environ.get("WANDB_API_KEY") else "disabled",
     config  = {
-        "model":      os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b-instruct"),
+        "model":      os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b"),
         "env_url":    os.environ.get("ENV_URL",    "https://http--moa-rl-env--7b2fgcxb6gxp.code.run"),
         "max_steps":  300,
         "num_generations": 4,
@@ -36,7 +36,7 @@ wandb.init(
 )
 
 ENV_URL    = os.environ.get("ENV_URL", "https://http--moa-rl-env--7b2fgcxb6gxp.code.run")
-MODEL_NAME = os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b-instruct")
+MODEL_NAME = os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b")
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "/output/moa-rl-grpo")
 TIMEOUT    = 120
 MAX_STEPS  = 8   # tool calls per episode
