@@ -1,36 +1,182 @@
 """
 GRPO training on MOA RL environment — gpt-oss 20B BF16 on H100.
-Connects to the deployed moa-rl-env on Northflank for rewards.
+
+Multi-turn tool-using training:
+  The model generates a sequence of tool calls (read/edit/bash/submit) in one pass.
+  The reward function executes them against the env and returns tests_passed/tests_total.
+
+  This works with standard Unsloth GRPO (use_vllm=True) because:
+  - Unsloth manages local vLLM for fast rollouts
+  - Unsloth syncs weights HF ↔ vLLM after each batch automatically
+  - The reward function executes the tool call sequence and scores it
+  - Model learns: "from these user words, generate tool calls that pass tests"
 """
+
+import json
 import os
+import re
 import requests
+import torch
 from datasets import Dataset
 from trl import GRPOTrainer, GRPOConfig
 from unsloth import FastLanguageModel
-import torch
 
-ENV_URL = os.environ.get("ENV_URL", "https://http--moa-rl-env--7b2fgcxb6gxp.code.run")
+ENV_URL    = os.environ.get("ENV_URL", "https://http--moa-rl-env--7b2fgcxb6gxp.code.run")
 MODEL_NAME = os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b-instruct")
 OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "/output/moa-rl-grpo")
-TIMEOUT_S = 120
+TIMEOUT    = 120
+MAX_STEPS  = 8   # tool calls per episode
 
-# ── Env helpers ────────────────────────────────────────────────────────────────
-def env_reset():
-    r = requests.post(f"{ENV_URL}/reset", json={}, timeout=TIMEOUT_S)
+
+# ── env helpers ────────────────────────────────────────────────────────────────
+
+def env_reset() -> dict:
+    r = requests.post(f"{ENV_URL}/reset", json={}, timeout=TIMEOUT)
     r.raise_for_status()
-    return r.json()
+    raw = r.json()
+    obs = raw.get("observation", raw)
+    obs["reward"] = raw.get("reward", 0.0)
+    return obs
 
-def env_step(file_path: str, content: str) -> float:
-    r = requests.post(f"{ENV_URL}/step",
-                      json={"action": {"file_path": file_path, "content": content}},
-                      timeout=TIMEOUT_S)
+def env_step(tool: str, params: dict) -> dict:
+    r = requests.post(
+        f"{ENV_URL}/step",
+        json={"action": {"tool": tool, "params": params}},
+        timeout=TIMEOUT,
+    )
     r.raise_for_status()
-    return float(r.json().get("reward") or 0.0)
+    raw = r.json()
+    obs = raw.get("observation", raw)
+    obs["reward"] = raw.get("reward", 0.0)
+    return obs
 
-# ── Model — BF16, no quantization (H100 has enough VRAM) ──────────────────────
+
+# ── prompt format ──────────────────────────────────────────────────────────────
+
+SYSTEM_PROMPT = """\
+You are a TypeScript coding agent. You fix broken source files using tools.
+
+Available tools — emit each as a JSON object on its own line:
+  {"tool": "read",   "params": {"path": "src/foo.ts"}}
+  {"tool": "edit",   "params": {"path": "src/foo.ts", "old_string": "...", "new_string": "..."}}
+  {"tool": "bash",   "params": {"cmd": "npx tsc --noEmit 2>&1 | head -10"}}
+  {"tool": "submit", "params": {}}
+
+Rules:
+- Always read the file first to understand its current state.
+- Edit the file to implement the required functionality.
+- Optionally use bash to verify compilation.
+- Always end with submit to trigger the test suite.
+- Emit tool calls ONLY — no prose, no markdown fences.
+"""
+
+def build_prompt(obs: dict) -> str:
+    user_msgs = obs.get("user_messages", [])
+    user_context = ""
+    if user_msgs:
+        user_context = "User messages that triggered this task:\n"
+        user_context += "\n".join(f"  > {m}" for m in user_msgs) + "\n\n"
+
+    return (
+        f"{user_context}"
+        f"Task: {obs['task']}\n\n"
+        f"File to fix: {obs['broken_file_path']}\n\n"
+        "Tests that must pass:\n"
+        f"```ts\n{obs.get('test_file_content', '')[:2000]}\n```\n\n"
+        "Generate tool calls to fix the file and submit:"
+    )
+
+
+# ── dataset ────────────────────────────────────────────────────────────────────
+
+print(f"Building dataset from {ENV_URL}...")
+rows = []
+for _ in range(32):   # 32 prompts, GRPO generates N completions each
+    obs = env_reset()
+    rows.append({
+        "prompt": build_prompt(obs),
+        "task_id": obs.get("task", ""),
+        "file_path": obs.get("broken_file_path", ""),
+    })
+
+dataset = Dataset.from_list(rows)
+print(f"Dataset: {len(dataset)} prompts")
+
+
+# ── reward function ────────────────────────────────────────────────────────────
+
+def _parse_tool_calls(text: str) -> list[dict]:
+    """Extract JSON tool call objects from model output."""
+    calls = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            obj = json.loads(line)
+            if "tool" in obj and "params" in obj:
+                calls.append(obj)
+        except json.JSONDecodeError:
+            pass
+    return calls
+
+def _text(completion) -> str:
+    if isinstance(completion, str):
+        return completion
+    if isinstance(completion, list):
+        return "".join(
+            c["content"] if isinstance(c, dict) else str(c)
+            for c in completion
+        )
+    return str(completion)
+
+def reward_fn(completions, file_path, **kwargs) -> list[float]:
+    """
+    Execute each completion's tool call sequence against the env.
+    Returns reward = tests_passed / tests_total (0.0–1.0).
+    """
+    rewards = []
+    for completion, fp in zip(completions, file_path):
+        text = _text(completion)
+        calls = _parse_tool_calls(text)
+
+        if not calls:
+            rewards.append(0.0)
+            continue
+
+        try:
+            # Fresh episode for each completion
+            env_reset()
+            reward = 0.0
+
+            for call in calls[:MAX_STEPS]:
+                tool   = call.get("tool", "")
+                params = call.get("params", {})
+                obs    = env_step(tool, params)
+                reward = obs.get("reward", 0.0)
+                if obs.get("done", False):
+                    break
+
+            # If model never submitted, force submit to get a score
+            if not any(c.get("tool") == "submit" for c in calls):
+                obs    = env_step("submit", {})
+                reward = obs.get("reward", 0.0)
+
+            rewards.append(reward)
+
+        except Exception as e:
+            print(f"reward_fn error: {e}")
+            rewards.append(0.0)
+
+    return rewards
+
+
+# ── model ──────────────────────────────────────────────────────────────────────
+
+print(f"Loading {MODEL_NAME}...")
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name=MODEL_NAME,
-    max_seq_length=2048,
+    max_seq_length=4096,
     load_in_4bit=False,
     dtype=torch.bfloat16,
 )
@@ -44,43 +190,9 @@ model = FastLanguageModel.get_peft_model(
     random_state=42,
 )
 
-# ── Dataset from live env ─────────────────────────────────────────────────────
-def build_prompt(obs: dict) -> str:
-    return (
-        "You are fixing one TypeScript file. Return ONLY the complete fixed file contents.\n\n"
-        f"Task:\n{obs['task']}\n\n"
-        f"File: {obs['broken_file_path']}\n\n"
-        "```ts\n" + obs["broken_file_content"] + "\n```\n\n"
-        "Tests:\n```ts\n" + obs["test_file_content"] + "\n```\n"
-    )
 
-rows = []
-for _ in range(24):
-    obs = env_reset()["observation"]
-    rows.append({"prompt": build_prompt(obs), "file_path": obs["broken_file_path"]})
+# ── training ───────────────────────────────────────────────────────────────────
 
-dataset = Dataset.from_list(rows)
-print(f"Dataset: {len(dataset)} examples")
-
-# ── Reward function ────────────────────────────────────────────────────────────
-def _text(completion):
-    if isinstance(completion, str): return completion
-    if isinstance(completion, list):
-        return "".join(c["content"] if isinstance(c, dict) else str(c) for c in completion)
-    return str(completion)
-
-def reward_fn(completions, file_path, **kwargs):
-    rewards = []
-    for completion, fp in zip(completions, file_path):
-        code = _text(completion)
-        aligned = any(
-            env_reset()["observation"]["broken_file_path"] == fp
-            for _ in range(6)
-        )
-        rewards.append(env_step(fp, code) if aligned else 0.0)
-    return rewards
-
-# ── Training ───────────────────────────────────────────────────────────────────
 trainer = GRPOTrainer(
     model=model,
     processing_class=tokenizer,
@@ -88,21 +200,22 @@ trainer = GRPOTrainer(
     args=GRPOConfig(
         output_dir=OUTPUT_DIR,
         per_device_train_batch_size=1,
-        gradient_accumulation_steps=1,
-        num_generations=2,
-        max_prompt_length=1536,
-        max_completion_length=512,
-        learning_rate=1e-5,
+        gradient_accumulation_steps=4,
+        num_generations=4,          # 4 completions per prompt → GRPO needs variance
+        max_prompt_length=2048,
+        max_completion_length=1024, # enough for 8 tool calls
+        learning_rate=5e-6,
         logging_steps=1,
         save_steps=50,
         max_steps=300,
         bf16=True,
-        use_vllm=True,
+        use_vllm=True,              # Unsloth manages vLLM + weight sync
     ),
     train_dataset=dataset,
 )
 
 print(f"Training against {ENV_URL}")
+print(f"Model: {MODEL_NAME}  Output: {OUTPUT_DIR}")
 trainer.train()
 trainer.save_model(OUTPUT_DIR)
-print("Done. Model saved to", OUTPUT_DIR)
+print(f"Done. Saved to {OUTPUT_DIR}")
