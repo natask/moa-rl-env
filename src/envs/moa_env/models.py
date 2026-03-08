@@ -40,4 +40,5 @@ class MOAState(State):
     broken_file_content: str = ""
     test_file_content: str = ""
     sandbox_dir: str = ""
+    test_file: str = ""
     last_reward: float = 0.0

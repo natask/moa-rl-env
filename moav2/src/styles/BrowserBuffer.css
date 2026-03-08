@@ -1,0 +1,164 @@
+.browser-buffer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--bg-primary);
+}
+
+.browser-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.browser-nav button {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 2px 6px;
+}
+
+.browser-nav button:disabled {
+  color: var(--text-faint);
+  cursor: default;
+}
+
+.browser-nav input {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: monospace;
+}
+
+.browser-fallback-link-row {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+.browser-fallback-link-row.is-blocked {
+  border-bottom-color: var(--accent-border);
+}
+
+.browser-fallback-link {
+  background: transparent;
+  border: none;
+  color: var(--text-faint);
+  font-size: 11px;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.browser-fallback-link:hover {
+  color: var(--text-secondary);
+}
+
+.browser-fallback-link-row.is-blocked .browser-fallback-link {
+  color: var(--text-secondary);
+}
+
+/* Webview container for layout containment and GPU compositing */
+.browser-view-container {
+  flex: 1;
+  display: flex;
+  width: 100%;
+  position: relative;
+  background: var(--bg-primary);
+  contain: strict;
+  will-change: transform;
+}
+
+/* During window resize, disable pointer events on the webview/iframe
+   so it doesn't capture resize events and trigger expensive re-layouts */
+.browser-view-container.resizing webview,
+.browser-view-container.resizing iframe {
+  pointer-events: none !important;
+}
+
+/* Blocked-site overlay */
+.browser-blocked-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  color: var(--text-tertiary);
+  font-size: 14px;
+  padding: 20px;
+  text-align: center;
+  gap: 12px;
+}
+
+.browser-blocked-overlay button {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.browser-blocked-overlay .blocked-hint {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 8px;
+}
+
+.browser-nav-error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.browser-nav-error-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.browser-nav-error-message {
+  color: var(--text-secondary);
+}
+
+.browser-nav-error-url {
+  color: var(--text-faint);
+  font-family: monospace;
+  word-break: break-all;
+  max-width: 100%;
+}
+
+.browser-nav-error-overlay button {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.browser-capacitor-anchor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}

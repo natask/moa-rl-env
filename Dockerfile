@@ -1,8 +1,17 @@
 FROM ghcr.io/meta-pytorch/openenv-base:latest
 
-# Install node for running vitest
-RUN apt-get update && apt-get install -y nodejs npm && rm -rf /var/lib/apt/lists/*
+# Install node 20 + npm
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
+# Copy moav2 source and pre-install all dependencies once
+# (node_modules will be symlinked into per-request sandboxes — no 700MB copy per reset)
+COPY moav2/ /app/moav2/
+RUN cd /app/moav2 && npm install --no-audit --no-fund
+
+# Copy env server
 COPY src/core/ /app/src/core/
 COPY src/envs/moa_env/ /app/src/envs/moa_env/
 

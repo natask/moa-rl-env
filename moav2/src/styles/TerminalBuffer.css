@@ -1,0 +1,163 @@
+/* ── Terminal ── */
+
+.terminal-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary, #111110);
+  overflow: hidden;
+  position: relative;
+  contain: strict;
+  will-change: transform;
+}
+
+.terminal-buffer {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  padding: 6px 2px 2px 6px;
+  background: var(--bg-primary, #111110);
+  overflow: hidden;
+}
+
+.terminal-capacitor-note {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border-color, #2a2a28);
+  color: var(--text-faint, #62605b);
+  font-size: 11px;
+  background: var(--bg-secondary, #191918);
+}
+
+/* xterm fills its container */
+.terminal-buffer .xterm {
+  height: 100%;
+}
+
+.terminal-buffer .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+/* Selection highlight */
+.terminal-buffer .xterm .xterm-selection div {
+  opacity: 0.3;
+}
+
+/* Cursor glow */
+.terminal-buffer .xterm-cursor-layer .xterm-cursor {
+  box-shadow: 0 0 4px rgba(196, 168, 130, 0.4);
+}
+
+/* Scrollbar — thin, warm, unobtrusive */
+.terminal-buffer .xterm-viewport::-webkit-scrollbar {
+  width: 5px;
+}
+
+.terminal-buffer .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-buffer .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(196, 168, 130, 0.15);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.terminal-buffer .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(196, 168, 130, 0.3);
+}
+
+/* Links */
+.terminal-buffer .xterm a {
+  color: var(--accent, #c4a882);
+  text-decoration: none;
+}
+
+.terminal-buffer .xterm a:hover {
+  text-decoration: underline;
+}
+
+/* ── Search Bar ── */
+
+.terminal-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: var(--bg-secondary, #191918);
+  border-bottom: 1px solid var(--border-color, #2a2a28);
+  flex-shrink: 0;
+  animation: searchSlideIn 0.15s ease;
+}
+
+@keyframes searchSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.terminal-search-input {
+  flex: 1;
+  background: var(--bg-primary, #111110);
+  color: var(--text-primary, #eeeeec);
+  border: 1px solid var(--border-color, #2a2a28);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: 'SF Mono', 'Cascadia Code', Monaco, Menlo, Consolas, monospace;
+  font-size: 12px;
+  outline: none;
+  min-width: 0;
+}
+
+.terminal-search-input:focus {
+  border-color: var(--accent, #c4a882);
+  box-shadow: 0 0 0 1px rgba(196, 168, 130, 0.15);
+}
+
+.terminal-search-input::placeholder {
+  color: var(--text-faint, #62605b);
+}
+
+.terminal-search-btn {
+  background: transparent;
+  color: var(--text-tertiary, #7c7b74);
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 10px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.terminal-search-btn:hover {
+  color: var(--text-primary, #eeeeec);
+  background: var(--bg-hover, #2a2a28);
+}
+
+.terminal-search-close {
+  font-size: 14px;
+  font-weight: 300;
+  margin-left: 2px;
+}
+
+/* ── Error & Unavailable ── */
+
+.terminal-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-faint, #62605b);
+  font-family: 'SF Mono', Monaco, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.terminal-unavailable {
+  height: 100%;
+}

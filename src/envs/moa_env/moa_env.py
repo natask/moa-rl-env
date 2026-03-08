@@ -39,46 +39,50 @@ class MOAEnv(Environment):
             episode_id=str(uuid.uuid4()),
             step_count=0,
             current_task=task["description"],
-            broken_file_path=task["broken_file"],
+            broken_file_path=task["source_file"],
             broken_file_content=task["broken_content"],
-            test_file_content=task["test_content"],
+            test_file_content=task["test_file_content"],
             sandbox_dir=sandbox,
+            test_file=task["test_file"],
             last_reward=0.0,
         )
 
         return MOAObservation(
             task=task["description"],
-            broken_file_path=task["broken_file"],
+            broken_file_path=task["source_file"],
             broken_file_content=task["broken_content"],
-            test_file_content=task["test_content"],
+            test_file_content=task["test_file_content"],
             done=False,
         )
 
     def _make_sandbox(self, task: dict) -> str:
-        """Create a self-contained vitest project for this task."""
+        """
+        Copy moav2/src to a temp dir, symlink node_modules from the pre-installed
+        /app/moav2 directory (avoids copying 700MB per request), then blank the
+        target source file so the agent starts from scratch.
+        """
+        import shutil
+        MOAV2 = "/app/moav2"
         sandbox = tempfile.mkdtemp(prefix="moa_env_")
 
-        with open(os.path.join(sandbox, "package.json"), "w") as f:
-            f.write(task["package_json"])
+        # Copy source tree (812KB) and config files
+        shutil.copytree(os.path.join(MOAV2, "src"), os.path.join(sandbox, "src"))
+        for f in ("package.json", "vitest.config.ts", "tsconfig.json"):
+            src = os.path.join(MOAV2, f)
+            if os.path.exists(src):
+                shutil.copy(src, sandbox)
 
-        if "tsconfig" in task:
-            with open(os.path.join(sandbox, "tsconfig.json"), "w") as f:
-                f.write(task["tsconfig"])
+        # Symlink node_modules — no copy needed
+        os.symlink(
+            os.path.join(MOAV2, "node_modules"),
+            os.path.join(sandbox, "node_modules"),
+        )
 
-        broken_path = os.path.join(sandbox, task["broken_file"])
-        os.makedirs(os.path.dirname(broken_path), exist_ok=True)
+        # Blank out the target file — agent must implement it
+        broken_path = os.path.join(sandbox, task["source_file"])
         with open(broken_path, "w") as f:
             f.write(task["broken_content"])
 
-        test_path = os.path.join(sandbox, task["test_file"])
-        os.makedirs(os.path.dirname(test_path), exist_ok=True)
-        with open(test_path, "w") as f:
-            f.write(task["test_content"])
-
-        subprocess.run(
-            ["npm", "install", "--prefer-offline", "--no-audit", "--no-fund"],
-            cwd=sandbox, capture_output=True, timeout=120,
-        )
         return sandbox
 
     def step(self, action: Action) -> Observation:
@@ -116,23 +120,21 @@ class MOAEnv(Environment):
         )
 
     def _run_tests(self) -> tuple[int, int, str]:
-        """Run vitest in sandbox, return (passed, total, output)."""
+        """Run only the task's test file for speed (~500ms vs full suite)."""
         try:
             result = subprocess.run(
-                ["npx", "vitest", "run", "--reporter=verbose"],
+                ["npx", "vitest", "run", "--reporter=verbose",
+                 self._state.test_file],
                 cwd=self._state.sandbox_dir,
                 capture_output=True,
                 text=True,
                 timeout=60,
             )
             output = result.stdout + result.stderr
-
-            # parse vitest output
             passed = output.count(" ✓ ")
             failed = output.count(" ✗ ") + output.count(" × ")
             total = passed + failed
-
-            return passed, total, output[-2000:]  # last 2000 chars
+            return passed, total, output[-3000:]
         except Exception as e:
             return 0, 0, str(e)
 
