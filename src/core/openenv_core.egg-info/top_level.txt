@@ -1,2 +1,0 @@
-openenv_cli
-openenv_core
