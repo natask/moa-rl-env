@@ -6,7 +6,6 @@ Agent submits a fixed version. Tests run. Reward = test pass rate.
 """
 
 import os
-import shutil
 import subprocess
 import tempfile
 import uuid
@@ -30,25 +29,19 @@ class MOAEnv(Environment):
         self._task_index = 0  # cycle through tasks
 
     def reset(self) -> Observation:
-        # cycle through tasks
         task_id = TASKS[self._task_index % len(TASKS)]["id"]
         self._task_index += 1
 
         task = load_task(task_id)
-
-        # create sandbox: copy MOA repo to temp dir
-        sandbox = tempfile.mkdtemp(prefix="moa_env_")
-        moa_repo = os.path.expanduser("~/projs/moa/moa")
-        if os.path.exists(moa_repo):
-            shutil.copytree(moa_repo, sandbox, dirs_exist_ok=True)
+        sandbox = self._make_sandbox(task)
 
         self._state = MOAState(
             episode_id=str(uuid.uuid4()),
             step_count=0,
             current_task=task["description"],
             broken_file_path=task["broken_file"],
-            broken_file_content=task["broken_file_content"],
-            test_file_content=task["test_file_content"],
+            broken_file_content=task["broken_content"],
+            test_file_content=task["test_content"],
             sandbox_dir=sandbox,
             last_reward=0.0,
         )
@@ -56,10 +49,37 @@ class MOAEnv(Environment):
         return MOAObservation(
             task=task["description"],
             broken_file_path=task["broken_file"],
-            broken_file_content=task["broken_file_content"],
-            test_file_content=task["test_file_content"],
+            broken_file_content=task["broken_content"],
+            test_file_content=task["test_content"],
             done=False,
         )
+
+    def _make_sandbox(self, task: dict) -> str:
+        """Create a self-contained vitest project for this task."""
+        sandbox = tempfile.mkdtemp(prefix="moa_env_")
+
+        with open(os.path.join(sandbox, "package.json"), "w") as f:
+            f.write(task["package_json"])
+
+        if "tsconfig" in task:
+            with open(os.path.join(sandbox, "tsconfig.json"), "w") as f:
+                f.write(task["tsconfig"])
+
+        broken_path = os.path.join(sandbox, task["broken_file"])
+        os.makedirs(os.path.dirname(broken_path), exist_ok=True)
+        with open(broken_path, "w") as f:
+            f.write(task["broken_content"])
+
+        test_path = os.path.join(sandbox, task["test_file"])
+        os.makedirs(os.path.dirname(test_path), exist_ok=True)
+        with open(test_path, "w") as f:
+            f.write(task["test_content"])
+
+        subprocess.run(
+            ["npm", "install", "--prefer-offline", "--no-audit", "--no-fund"],
+            cwd=sandbox, capture_output=True, timeout=120,
+        )
+        return sandbox
 
     def step(self, action: Action) -> Observation:
         if not isinstance(action, MOAAction):
