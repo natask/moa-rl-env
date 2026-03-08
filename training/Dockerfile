@@ -1,14 +1,14 @@
-FROM pytorch/pytorch:2.8.0-cuda12.6-cudnn9-runtime
+FROM pytorch/pytorch:2.8.0-cuda12.6-cudnn9-devel
 
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade pip && pip install uv
+RUN pip install --upgrade pip
 
-# vLLM + unsloth via uv (Unsloth-recommended for vLLM GRPO)
-RUN uv pip install --system unsloth vllm --torch-backend=auto
-
+# Pin vLLM to version TRL supports, install unsloth
 RUN pip install --no-cache-dir \
-    trl \
+    "vllm==0.12.0" \
+    unsloth \
+    "trl>=0.16.0" \
     transformers \
     accelerate \
     datasets \
