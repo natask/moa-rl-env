@@ -221,7 +221,6 @@ trainer = GRPOTrainer(
         per_device_train_batch_size=1,
         gradient_accumulation_steps=4,
         num_generations=4,          # 4 completions per prompt → GRPO needs variance
-        max_prompt_length=2048,
         max_completion_length=1024, # enough for 8 tool calls
         learning_rate=5e-6,
         logging_steps=1,
