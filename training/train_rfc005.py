@@ -24,10 +24,22 @@ The key upgrade over train.py:
 import os
 import torch
 import torch.nn.functional as F
+import wandb
 from concurrent.futures import ThreadPoolExecutor
 from unsloth import FastLanguageModel
 
 from rollout_wrapper import run_episode, Trajectory
+
+wandb.init(
+    project = "moa-rl-grpo",
+    config  = {
+        "model":      os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b-instruct"),
+        "env_url":    os.environ.get("ENV_URL",    "https://http--moa-rl-env--7b2fgcxb6gxp.code.run"),
+        "max_steps":  300,
+        "n_episodes": int(os.environ.get("N_EPISODES", "4")),
+        "approach":   "rfc005-interactive-multiturn",
+    }
+)
 
 MODEL_NAME  = os.environ.get("MODEL_NAME",  "unsloth/gpt-oss-20b-instruct")
 OUTPUT_DIR  = os.environ.get("OUTPUT_DIR",  "/output/moa-rl-grpo-rfc005")
@@ -142,6 +154,13 @@ for step in range(MAX_STEPS):
     optimizer.step()
 
     # Unsloth automatically syncs updated weights → vLLM after optimizer.step()
+
+    wandb.log({
+        "loss":         loss.item(),
+        "reward/mean":  mean_r,
+        "reward/max":   max(rewards),
+        "reward/min":   min(rewards),
+    }, step=step)
 
     print(
         f"step {step+1:4d}/{MAX_STEPS} | "

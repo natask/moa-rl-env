@@ -17,9 +17,21 @@ import os
 import re
 import requests
 import torch
+import wandb
 from datasets import Dataset
 from trl import GRPOTrainer, GRPOConfig
 from unsloth import FastLanguageModel
+
+wandb.init(
+    project = "moa-rl-grpo",
+    config  = {
+        "model":      os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b-instruct"),
+        "env_url":    os.environ.get("ENV_URL",    "https://http--moa-rl-env--7b2fgcxb6gxp.code.run"),
+        "max_steps":  300,
+        "num_generations": 4,
+        "approach":   "single-completion-plan",
+    }
+)
 
 ENV_URL    = os.environ.get("ENV_URL", "https://http--moa-rl-env--7b2fgcxb6gxp.code.run")
 MODEL_NAME = os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b-instruct")
@@ -168,6 +180,11 @@ def reward_fn(completions, file_path, **kwargs) -> list[float]:
             print(f"reward_fn error: {e}")
             rewards.append(0.0)
 
+    wandb.log({
+        "reward/mean":  sum(rewards) / len(rewards),
+        "reward/max":   max(rewards),
+        "reward/min":   min(rewards),
+    })
     return rewards
 
 

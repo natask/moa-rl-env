@@ -13,9 +13,12 @@ RUN pip install --no-cache-dir \
     accelerate \
     datasets \
     requests \
-    peft
+    peft \
+    wandb
 
 WORKDIR /app
 COPY train.py .
+COPY train_rfc005.py .
+COPY rollout_wrapper.py .
 
 CMD ["python", "train.py"]
