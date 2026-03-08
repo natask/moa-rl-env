@@ -1,10 +1,10 @@
-FROM pytorch/pytorch:2.8.0-cuda12.6-cudnn9-devel
+FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-devel
 
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip
 
-# Deps baked into image — only rebuild when these change
+# vLLM 0.7.3 is tested against torch 2.5.x — this base image matches
 RUN pip install --no-cache-dir \
     "vllm==0.7.3" \
     unsloth \
