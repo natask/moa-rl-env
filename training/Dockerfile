@@ -15,9 +15,6 @@ RUN pip install --no-cache-dir \
     peft \
     wandb
 
-# TRL pinned to compat range for vllm 0.7.3
-RUN pip install --upgrade --no-cache-dir "trl>=0.12.0,<0.16.0"
-
 WORKDIR /app
 
 COPY entrypoint.sh /entrypoint.sh
