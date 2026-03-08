@@ -12,6 +12,7 @@ Multi-turn tool-using training:
   - Model learns: "from these user words, generate tool calls that pass tests"
 """
 
+import unsloth  # must be first to apply all optimizations
 import json
 import os
 import re
@@ -24,6 +25,7 @@ from unsloth import FastLanguageModel
 
 wandb.init(
     project = "moa-rl-grpo",
+    mode    = "online" if os.environ.get("WANDB_API_KEY") else "disabled",
     config  = {
         "model":      os.environ.get("MODEL_NAME", "unsloth/gpt-oss-20b-instruct"),
         "env_url":    os.environ.get("ENV_URL",    "https://http--moa-rl-env--7b2fgcxb6gxp.code.run"),
