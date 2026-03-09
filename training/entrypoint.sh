@@ -1,6 +1,22 @@
 #!/bin/bash
 set -e
 
+# Install Python deps at runtime (avoids OOM during kaniko build)
+# Uses a marker file so this only runs once per container lifecycle
+if [ ! -f /app/.deps-installed ]; then
+    echo "=== Installing Python dependencies ==="
+    pip install --no-cache-dir \
+        unsloth \
+        transformers \
+        accelerate \
+        datasets \
+        requests \
+        peft \
+        wandb
+    touch /app/.deps-installed
+    echo "=== Dependencies installed ==="
+fi
+
 REPO_URL=${REPO_URL:-https://github.com/natask/moa-rl-env.git}
 REPO_BRANCH=${REPO_BRANCH:-master}
 
