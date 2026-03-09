@@ -2,8 +2,8 @@
 set -e
 
 # Install Python deps at runtime (avoids OOM during kaniko build)
-# Uses a marker file so this only runs once per container lifecycle
-if [ ! -f /app/.deps-installed ]; then
+# Persisted on /mnt so they survive container restarts
+if [ ! -f /mnt/.deps-installed ]; then
     echo "=== Installing Python dependencies ==="
     pip install --no-cache-dir \
         unsloth \
@@ -13,22 +13,22 @@ if [ ! -f /app/.deps-installed ]; then
         requests \
         peft \
         wandb
-    touch /app/.deps-installed
+    touch /mnt/.deps-installed
     echo "=== Dependencies installed ==="
 fi
 
 REPO_URL=${REPO_URL:-https://github.com/natask/moa-rl-env.git}
 REPO_BRANCH=${REPO_BRANCH:-master}
 
-if [ ! -d /app/repo ]; then
-    git clone --depth=1 --branch "$REPO_BRANCH" "$REPO_URL" /app/repo
+if [ ! -d /mnt/repo ]; then
+    git clone --depth=1 --branch "$REPO_BRANCH" "$REPO_URL" /mnt/repo
 else
-    cd /app/repo && git pull
+    cd /mnt/repo && git pull
 fi
 
 echo ""
-echo "=== Shell ready. Training code at /app/repo/training ==="
-echo "=== Run: cd /app/repo/training && python train.py      ==="
+echo "=== Shell ready. Training code at /mnt/repo/training ==="
+echo "=== Run: cd /mnt/repo/training && python train.py      ==="
 echo ""
 
 # Keep container alive — use Northflank UI shell or: nf exec <service> -- bash
